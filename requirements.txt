@@ -10,3 +10,4 @@ pandas
 numpy
 seaborn
 ijson
+nltk

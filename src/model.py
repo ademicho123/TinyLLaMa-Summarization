@@ -23,17 +23,14 @@ def train_model(model, tokenizer, train_data, epochs=3, batch_size=4):
     optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5)
     training_stats = {'losses': []}
 
-    # Filter out empty samples
-    train_data = [data for data in train_data if data['article'].strip() and data['summary'].strip()]
-    print(f"Number of training samples: {len(train_data)}")
-
+    train_data = [data for data in train_data if data['article'].strip() and data['highlights'].strip()]
+    
     for epoch in range(epochs):
         total_loss = 0
         batch_count = 0
         
         for i in range(0, len(train_data), batch_size):
             batch = train_data[i:i + batch_size]
-            print(f"Processing batch {i} of size {len(batch)}")
             
             inputs = tokenizer([item['article'] for item in batch],
                              truncation=True,
@@ -41,14 +38,13 @@ def train_model(model, tokenizer, train_data, epochs=3, batch_size=4):
                              padding=True,
                              return_tensors="pt")
                              
-            labels = tokenizer([item['summary'] for item in batch],
+            labels = tokenizer([item['highlights'] for item in batch],
                              truncation=True,
                              max_length=128,
                              padding=True,
                              return_tensors="pt")
-
+            
             if inputs['input_ids'].size(0) == 0 or labels['input_ids'].size(0) == 0:
-                print(f"Skipping empty batch {i}")
                 continue
                
             outputs = model(input_ids=inputs['input_ids'].to(device),
@@ -68,12 +64,8 @@ def train_model(model, tokenizer, train_data, epochs=3, batch_size=4):
         if batch_count > 0:
             avg_loss = total_loss / batch_count
             training_stats['losses'].append(avg_loss)
-            print(f"Epoch {epoch + 1}, Average Loss: {avg_loss}")
-        else:
-            print(f"Epoch {epoch + 1}, No batches processed")
-        
+            
     return training_stats
-
         
 def save_model(model, tokenizer, save_path: str):
     """
@@ -101,6 +93,18 @@ def summarize(model, tokenizer, text: str, max_length: int = 50) -> str:
     Returns:
     str: The generated summary.
     """
+    if not text:
+        return ""
+    
     inputs = tokenizer("summarize: " + text, return_tensors="pt", truncation=True)
+    
+    if not inputs:
+        return ""
+    
     outputs = model.generate(inputs, max_length=max_length, num_beams=4, early_stopping=True)
+    
+    if not outputs:
+        return ""
+    
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
