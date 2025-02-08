@@ -1,0 +1,21 @@
+name: pytorch-custom-conda
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+      - torch
+      - transformers
+      - scikit-learn
+      - rouge-score
+      - nltk
+      - fastapi
+      - uvicorn
+      - matplotlib
+      - pandas  
+      - numpy
+      - seaborn
+      - emoji
+      - azureml-mlflow
+      - azureml-core
+channels:
+  - conda-forge

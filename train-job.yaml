@@ -1,7 +1,10 @@
 $schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
-command: python train.py
+command: python notebooks/summarizer.py
 code: .
-environment: azureml:AzureML-pytorch-2.0-ubuntu20.04-py38-cuda11-gpu
-compute: azureml:my-compute
+environment: 
+  name: pytorch-custom-env
+  version: 6
+  image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest
+compute: azureml:spoof-compute
 experiment_name: summarization_experiment
-output: azure_output/
+description: "Training a summarization model using TinyLlama"
