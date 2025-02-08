@@ -9,5 +9,6 @@ matplotlib
 pandas
 numpy
 seaborn
-ijson
+emoji
 nltk
+lightning

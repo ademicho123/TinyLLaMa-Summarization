@@ -1,6 +1,8 @@
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
 import os
+import torch
+import lightning as L
+from torch.utils.data import DataLoader, Dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForSeq2Seq
 
 def initialize_model(model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
     """
@@ -17,69 +19,55 @@ def initialize_model(model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return model, tokenizer
 
-def train_model(model, tokenizer, train_data, epochs=3, batch_size=4):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5)
-    training_stats = {'losses': []}
+# Lightning Model Class
+class SummarizationModel(L.LightningModule):
+    def __init__(self, model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0", lr=5e-5):
+        super().__init__()
+        self.save_hyperparameters()
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.lr = lr
 
-    train_data = [data for data in train_data if data['article'].strip() and data['highlights'].strip()]
-    
-    for epoch in range(epochs):
-        total_loss = 0
-        batch_count = 0
-        
-        for i in range(0, len(train_data), batch_size):
-            batch = train_data[i:i + batch_size]
-            
-            inputs = tokenizer([item['article'] for item in batch],
-                             truncation=True,
-                             max_length=512,
-                             padding=True,
-                             return_tensors="pt")
-                             
-            labels = tokenizer([item['highlights'] for item in batch],
-                             truncation=True,
-                             max_length=128,
-                             padding=True,
-                             return_tensors="pt")
-            
-            if inputs['input_ids'].size(0) == 0 or labels['input_ids'].size(0) == 0:
-                continue
-               
-            outputs = model(input_ids=inputs['input_ids'].to(device),
-                          labels=labels['input_ids'].to(device))
-            
-            loss = outputs.loss
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            
-            total_loss += loss.item()
-            batch_count += 1
-            
-            if i % 100 == 0:
-                print(f"Epoch {epoch + 1}, Batch {i}, Loss: {loss.item()}")
+    def forward(self, input_ids, attention_mask, labels=None):
+        return self.model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
 
-        if batch_count > 0:
-            avg_loss = total_loss / batch_count
-            training_stats['losses'].append(avg_loss)
-            
-    return training_stats
-        
-def save_model(model, tokenizer, save_path: str):
+    def training_step(self, batch, batch_idx):
+        outputs = self(batch["input_ids"], batch["attention_mask"], batch["labels"])
+        loss = outputs.loss
+        self.log("train_loss", loss)
+        return loss
+
+    def configure_optimizers(self):
+        return torch.optim.AdamW(self.parameters(), lr=self.lr)
+
+# Training Function Using Lightning AI
+def train_model(train_data, batch_size=4, epochs=3):
+    tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+    dataset = [preprocess_batch([item], tokenizer) for item in train_data]
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    model = SummarizationModel()
+
+    trainer = L.Trainer(
+        max_epochs=epochs,
+        accelerator="gpu",  # Automatically uses Lightning AI's cloud GPUs
+        devices=1
+    )
+
+    trainer.fit(model, dataloader)
+    model.model.save_pretrained("./models/summarizer_model")
+    tokenizer.save_pretrained("./models/summarizer_model")
+
+    return model
+
+def save_model(model, tokenizer, save_path):
     """
-    Save the model and tokenizer.
-    
-    Args:
-    model (AutoModelForSeq2SeqLM): The model to save.
-    tokenizer (AutoTokenizer): The tokenizer to save.
-    save_path (str): The directory to save the model.
+    Save the trained model and tokenizer.
     """
     os.makedirs(save_path, exist_ok=True)
     model.save_pretrained(save_path)
     tokenizer.save_pretrained(save_path)
-
+        
 def summarize(model, tokenizer, text: str, max_length: int = 50) -> str:
     """
     Generate a summary for the given text.

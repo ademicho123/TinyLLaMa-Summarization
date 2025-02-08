@@ -6,10 +6,15 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from typing import List, Tuple
+import os
+from sklearn.model_selection import train_test_split
 
+# Download required NLTK resources
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('wordnet')
+nltk.download('punkt_tab')
+nltk.download('averaged_perceptron_tagger')
 
 def process_text(text: str) -> str:
     """Clean and preprocess text."""
@@ -51,19 +56,11 @@ def load_data(file_path: str) -> pd.DataFrame:
     """Load CSV data."""
     return pd.read_csv(file_path)
 
-def split_and_save_data(articles: List[str], highlights: List[str], output_dir: str, test_size: float = 0.2):
-    """Split and save processed data."""
+def save_data(articles: List[str], highlights: List[str], output_dir: str, filename: str):
+    """Save processed data."""
     os.makedirs(output_dir, exist_ok=True)
-    train_articles, test_articles, train_highlights, test_highlights = train_test_split(
-        articles, highlights, test_size=test_size, random_state=42
-    )
     
     pd.DataFrame({
-        'article': train_articles,
-        'highlights': train_highlights
-    }).to_csv(os.path.join(output_dir, "train.csv"), index=False)
-    
-    pd.DataFrame({
-        'article': test_articles,
-        'highlights': test_highlights
-    }).to_csv(os.path.join(output_dir, "test.csv"), index=False)
+        'article': articles,
+        'highlights': highlights
+    }).to_csv(os.path.join(output_dir, filename), index=False)
