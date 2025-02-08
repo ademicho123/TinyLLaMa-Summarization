@@ -3,6 +3,8 @@ dependencies:
   - python=3.9
   - pip
   - pip:
+      - --upgrade pip  # Ensure pip is up to date
+      - pandas  # Ensure pandas installs first
       - torch
       - transformers
       - scikit-learn
@@ -11,7 +13,6 @@ dependencies:
       - fastapi
       - uvicorn
       - matplotlib
-      - pandas  
       - numpy
       - seaborn
       - emoji
