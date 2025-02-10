@@ -20,6 +20,3 @@ dependencies:
     - emoji
     - azureml-mlflow
     - azureml-core
-variables:
-  PYTHONPATH: /azureml-envs/pytorch-custom-conda/lib/python3.9/site-packages
-  CONDA_DLL_SEARCH_MODIFICATION_ENABLE: "1"
