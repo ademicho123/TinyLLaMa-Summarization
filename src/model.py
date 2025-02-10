@@ -3,6 +3,7 @@ import torch
 import lightning as L
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForSeq2Seq
+from src.preprocessing import preprocess_batch
 
 def initialize_model(model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
     """
@@ -43,7 +44,16 @@ class SummarizationModel(L.LightningModule):
 # Training Function Using Lightning AI
 def train_model(train_data, batch_size=4, epochs=3):
     tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+
+    print("🔹 Debug: Checking first training sample...")
+    print(train_data[0])  # Print first training example
+
+    # Ensure preprocess_batch is recognized
+    print("🔹 Debug: Checking preprocess_batch function...")
+    print(preprocess_batch)
+
     dataset = [preprocess_batch([item], tokenizer) for item in train_data]
+    
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     model = SummarizationModel()
@@ -55,13 +65,12 @@ def train_model(train_data, batch_size=4, epochs=3):
     )
 
     trainer.fit(model, dataloader)
-    
+
     # Save model
     model.model.save_pretrained("./models/summarizer_model")
     tokenizer.save_pretrained("./models/summarizer_model")
-    
-    # Return training loss
-    return {"losses": trainer.callback_metrics.get("train_loss", [])}
+
+    return model
 
 def save_model(model, tokenizer, save_path):
     """
