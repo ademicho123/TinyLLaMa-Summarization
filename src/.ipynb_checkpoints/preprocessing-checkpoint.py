@@ -8,7 +8,6 @@ from nltk.stem import WordNetLemmatizer
 from typing import List, Tuple
 import os
 from sklearn.model_selection import train_test_split
-from transformers import AutoTokenizer
 
 # Download required NLTK resources
 nltk.download('punkt')
@@ -46,22 +45,6 @@ def process_text(text: str) -> str:
     tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]
     return ' '.join(tokens)
 
-def preprocess_batch(batch, tokenizer):
-    """
-    Tokenize and format batch for training.
-    
-    Args:
-    batch (list): List of dictionaries containing "article" and "highlights".
-    tokenizer: Pre-trained tokenizer.
-    
-    Returns:
-    Dictionary containing tokenized inputs.
-    """
-    inputs = tokenizer([item["article"] for item in batch], padding="max_length", truncation=True, return_tensors="pt")
-    labels = tokenizer([item["highlights"] for item in batch], padding="max_length", truncation=True, return_tensors="pt").input_ids
-    inputs["labels"] = labels
-    return inputs
-
 def preprocess_data(data: pd.DataFrame) -> Tuple[List[str], List[str]]:
     """Process articles and highlights."""
     data = data.dropna(subset=['article', 'highlights'])
@@ -71,13 +54,13 @@ def preprocess_data(data: pd.DataFrame) -> Tuple[List[str], List[str]]:
 
 def load_data(file_path: str) -> pd.DataFrame:
     """Load CSV data."""
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-    
     return pd.read_csv(file_path)
 
-def save_data(articles, highlights, output_dir, filename):
-    output_path = os.path.join(output_dir, filename)
-    print(f"Saving processed data to: {output_path}")  # ✅ Added log
+def save_data(articles: List[str], highlights: List[str], output_dir: str, filename: str):
+    """Save processed data."""
     os.makedirs(output_dir, exist_ok=True)
-    pd.DataFrame({"article": articles, "highlights": highlights}).to_csv(output_path, index=False)
+    
+    pd.DataFrame({
+        'article': articles,
+        'highlights': highlights
+    }).to_csv(os.path.join(output_dir, filename), index=False)
