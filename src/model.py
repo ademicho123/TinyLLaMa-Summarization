@@ -3,6 +3,8 @@ import torch
 import lightning as L
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForSeq2Seq
+import sys
+from pathlib import Path
 
 # Add the project root directory to Python path
 project_root = str(Path.cwd().parent) if 'notebooks' in str(Path.cwd()) else str(Path.cwd())
@@ -88,34 +90,25 @@ def collate_fn(batch):
         'labels': labels
     }
 
-def train_model(train_data, batch_size=4, epochs=3):
-    """Train the summarization model."""
+def train_model(train_data, batch_size=1, epochs=3):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
     tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-    tokenizer.pad_token = tokenizer.eos_token
-    
-    # Create dataset using custom TextDataset class
-    dataset = TextDataset(train_data, tokenizer)
-    dataloader = DataLoader(
-        dataset, 
-        batch_size=batch_size, 
-        shuffle=True,
-        collate_fn=collate_fn
-    )
+    dataset = [preprocess_batch([item], tokenizer) for item in train_data]
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    model = SummarizationModel()
-    
+    model = SummarizationModel().to(device)
+
     trainer = L.Trainer(
         max_epochs=epochs,
         accelerator="gpu",
         devices=1,
-        gradient_clip_val=1.0,
-        accumulate_grad_batches=4
+        precision=16
     )
 
     trainer.fit(model, dataloader)
 
     # Save model
-    os.makedirs("./models/summarizer_model", exist_ok=True)
     model.model.save_pretrained("./models/summarizer_model")
     tokenizer.save_pretrained("./models/summarizer_model")
 
