@@ -1,22 +1,25 @@
 name: pytorch-custom-conda
-dependencies:
-  - python=3.9
-  - pip
-  - pip:
-      - --upgrade pip  # Ensure pip is up to date
-      - pandas  # Ensure pandas installs first
-      - torch
-      - transformers
-      - scikit-learn
-      - rouge-score
-      - nltk
-      - fastapi
-      - uvicorn
-      - matplotlib
-      - numpy
-      - seaborn
-      - emoji
-      - azureml-mlflow
-      - azureml-core
 channels:
   - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip>=25.0
+  - conda-forge::pandas>=2.0.0
+  - conda-forge::numpy>=1.24.0
+  - conda-forge::pytorch
+  - conda-forge::scikit-learn
+  - conda-forge::matplotlib
+  - conda-forge::seaborn
+  - pip:
+    - transformers
+    - rouge-score
+    - nltk
+    - fastapi
+    - uvicorn
+    - emoji
+    - azureml-mlflow
+    - azureml-core
+variables:
+  PYTHONPATH: /azureml-envs/pytorch-custom-conda/lib/python3.9/site-packages
+  CONDA_DLL_SEARCH_MODIFICATION_ENABLE: "1"

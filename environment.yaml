@@ -1,6 +1,7 @@
 $schema: https://azuremlschemas.azureedge.net/latest/environment.schema.json
 name: pytorch-custom-env
-version: 7
+version: 10
 image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest
-description: "Custom PyTorch 2.x environment"
+description: "Custom PyTorch environment with conda dependencies"
 conda_file: conda.yaml
+os_type: linux

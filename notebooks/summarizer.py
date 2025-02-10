@@ -36,6 +36,14 @@ from src.model import initialize_model, train_model, save_model, summarize
 from src.evaluation import calculate_rouge, calculate_bleu
 from src.visualizations import plot_loss
 
+print("Python path:", sys.path)
+print("Python version:", sys.version)
+try:
+    import pandas as pd
+    print("Pandas version:", pd.__version__)
+except ImportError as e:
+    print("Error importing pandas:", e)
+
 
 # In[ ]:
 
