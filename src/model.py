@@ -13,14 +13,14 @@ if project_root not in sys.path:
     
 from src.preprocessing import preprocess_batch  # Changed import statement
 
-def initialize_model(model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
+def initialize_model(model_name: str = "facebook/opt-350m"):
     """Initialize the model and tokenizer."""
     model = AutoModelForCausalLM.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return model, tokenizer
 
 class TextDataset(Dataset):
-    def __init__(self, data, tokenizer, max_length=512):
+    def __init__(self, data, tokenizer, max_length=256):
         self.data = data
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -54,11 +54,23 @@ class SummarizationModel(L.LightningModule):
     def __init__(self, model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0", lr=5e-5):
         super().__init__()
         self.save_hyperparameters()
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        
+        # Explicitly set device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {self.device}")
+        
+        # Load model to specific device
+        self.model = AutoModelForCausalLM.from_pretrained(model_name).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.lr = lr
 
     def forward(self, input_ids, attention_mask, labels=None):
+        # Ensure inputs are on the correct device
+        input_ids = input_ids.to(self.device)
+        attention_mask = attention_mask.to(self.device)
+        if labels is not None:
+            labels = labels.to(self.device)
+            
         outputs = self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -66,18 +78,6 @@ class SummarizationModel(L.LightningModule):
             return_dict=True
         )
         return outputs
-
-    def training_step(self, batch, batch_idx):
-        outputs = self.forward(
-            input_ids=batch['input_ids'],
-            attention_mask=batch['attention_mask'],
-            labels=batch['labels']
-        )
-        self.log("train_loss", outputs.loss)
-        return outputs.loss
-
-    def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr=self.lr)
 
 def collate_fn(batch):
     input_ids = torch.stack([item['input_ids'] for item in batch])
@@ -91,11 +91,23 @@ def collate_fn(batch):
     }
 
 def train_model(train_data, batch_size=1, epochs=3):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # Force CUDA initialization
+    if torch.cuda.is_available():
+        torch.cuda.init()
+        torch.cuda.empty_cache()
     
-    tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-    dataset = [preprocess_batch([item], tokenizer) for item in train_data]
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Training on device: {device}")
+    
+    dataset = TextDataset(train_data, AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0"))
+    
+    dataloader = DataLoader(
+        dataset, 
+        batch_size=1,
+        shuffle=True,
+        collate_fn=collate_fn,
+        pin_memory=True  # Add this for faster data transfer to GPU
+    )
 
     model = SummarizationModel().to(device)
 
@@ -103,15 +115,20 @@ def train_model(train_data, batch_size=1, epochs=3):
         max_epochs=epochs,
         accelerator="gpu",
         devices=1,
-        precision=16
+        precision=16,
+        strategy='ddp',  # Explicitly set the strategy
+        accumulate_grad_batches=4,
+        gradient_clip_val=1.0,
+        enable_checkpointing=False,
+        logger=False
     )
 
+    # Add GPU warmup
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+        torch.cuda.empty_cache()
+
     trainer.fit(model, dataloader)
-
-    # Save model
-    model.model.save_pretrained("./models/summarizer_model")
-    tokenizer.save_pretrained("./models/summarizer_model")
-
     return model
 
 def save_model(model, tokenizer, save_path):

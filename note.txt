@@ -1,0 +1,13 @@
+TinyLLaMa-Summarization/
+├── notebooks/
+│   └── summarizer.ipynb
+├── src/
+│   ├── __init__.py
+│   ├── preprocessing.py
+│   ├── model.py
+│   ├── evaluation.py
+│   └── visualizations.py
+├── data/
+│   ├── raw/
+│   └── processed/
+└── models/
